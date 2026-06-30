@@ -12,13 +12,9 @@ const TILE_ATTR = '&copy; <a href="https://www.openstreetmap.org/copyright">OSM<
 
 function GeolocationButton() {
   const map = useMap();
-
   useMapEvents({
-    locationfound(e) {
-      map.flyTo(e.latlng, 17, { animate: true, duration: 1 });
-    },
+    locationfound(e) { map.flyTo(e.latlng, 17, { animate: true, duration: 1 }); },
   });
-
   return (
     <button
       onClick={() => map.locate()}
@@ -38,8 +34,8 @@ function ZoomControls() {
   const map = useMap();
   return (
     <div className="absolute bottom-52 right-3 z-[999] flex flex-col gap-1">
-      <button onClick={() => map.zoomIn()} className="w-11 h-11 bg-white rounded-2xl shadow-md flex items-center justify-center border border-slate-100 text-slate-600 font-bold text-lg active:scale-95 transition-transform" aria-label="Zoom +">+</button>
-      <button onClick={() => map.zoomOut()} className="w-11 h-11 bg-white rounded-2xl shadow-md flex items-center justify-center border border-slate-100 text-slate-600 font-bold text-lg active:scale-95 transition-transform" aria-label="Zoom −">−</button>
+      <button onClick={() => map.zoomIn()} className="w-11 h-11 bg-white rounded-2xl shadow-md flex items-center justify-center border border-slate-100 text-slate-600 font-bold text-lg active:scale-95 transition-transform">+</button>
+      <button onClick={() => map.zoomOut()} className="w-11 h-11 bg-white rounded-2xl shadow-md flex items-center justify-center border border-slate-100 text-slate-600 font-bold text-lg active:scale-95 transition-transform">−</button>
     </div>
   );
 }
@@ -52,30 +48,61 @@ interface MarkersProps {
 }
 
 function PanneauMarkers({ features, simulatedDate, onCountChange, onMarkerClick }: MarkersProps) {
-  const markers = useMemo(() => {
+  const { s3rMarkers, autreMarkers, libres, interdits } = useMemo(() => {
     let libres = 0;
     let interdits = 0;
+    const s3r: Array<{ i: number; lat: number; lon: number; status: 'gratuit' | 'interdit' | 'inconnu'; props: PanneauProps }> = [];
+    const autre: Array<{ i: number; lat: number; lon: number; desc: string }> = [];
 
-    const result = features.map((f, i) => {
-      const props = f.properties as unknown as PanneauProps;
-      const status = getStatusFromProps(props, simulatedDate);
-      if (status === 'gratuit') libres++;
-      else interdits++;
+    features.forEach((f, i) => {
+      const type = f.properties['t'] as string;
       const coords = f.geometry.coordinates as [number, number];
-      return { i, lat: coords[1], lon: coords[0], status, props };
+      const lat = coords[1], lon = coords[0];
+
+      if (type === 's3r') {
+        const props = f.properties as unknown as PanneauProps;
+        const status = getStatusFromProps(props, simulatedDate);
+        if (status === 'gratuit') libres++;
+        else interdits++;
+        s3r.push({ i, lat, lon, status, props });
+      } else {
+        autre.push({ i: i + 100000, lat, lon, desc: f.properties['d'] as string });
+      }
     });
 
-    return { result, libres, interdits };
+    return { s3rMarkers: s3r, autreMarkers: autre, libres, interdits };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [features, simulatedDate.getHours(), simulatedDate.getDay()]);
 
   useEffect(() => {
-    onCountChange(markers.libres, markers.interdits);
-  }, [markers.libres, markers.interdits, onCountChange]);
+    onCountChange(libres, interdits);
+  }, [libres, interdits, onCountChange]);
 
   return (
     <>
-      {markers.result.map(({ i, lat, lon, status, props }) => (
+      {/* Poteaux sans S3R — gris translucide, en dessous */}
+      {autreMarkers.map(({ i, lat, lon, desc }) => (
+        <CircleMarker
+          key={i}
+          center={[lat, lon]}
+          radius={3}
+          pathOptions={{
+            color: '#94a3b8',
+            fillColor: '#cbd5e1',
+            fillOpacity: 0.5,
+            weight: 1,
+            opacity: 0.6,
+          }}
+          eventHandlers={{
+            click: () => onMarkerClick({
+              d: desc, hd: 0, hf: 0, jd: 0, jf: 6,
+            }),
+          }}
+        />
+      ))}
+
+      {/* Poteaux S3R — rouges/verts, au-dessus */}
+      {s3rMarkers.map(({ i, lat, lon, status, props }) => (
         <CircleMarker
           key={i}
           center={[lat, lon]}
@@ -83,7 +110,7 @@ function PanneauMarkers({ features, simulatedDate, onCountChange, onMarkerClick 
           pathOptions={{
             color: 'white',
             fillColor: STATUS_COLORS[status],
-            fillOpacity: 0.9,
+            fillOpacity: 0.92,
             weight: 1.5,
             opacity: 1,
           }}
