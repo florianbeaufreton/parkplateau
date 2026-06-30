@@ -5,10 +5,58 @@ html, body, #root {
   height: 100%;
   margin: 0;
   padding: 0;
-  font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif;
   background-color: #f1f5f9;
+  -webkit-font-smoothing: antialiased;
 }
 
-/* Fix Leaflet z-index conflicts with UI overlays */
+/* Fix Leaflet z-index conflicts */
 .leaflet-pane { z-index: 1; }
 .leaflet-top, .leaflet-bottom { z-index: 2; }
+.leaflet-container { background: #e8ecf0; }
+
+/* Tiles plus douces */
+.leaflet-tile { filter: saturate(0.8) brightness(1.03); }
+
+/* Bottom sheet drag */
+.bottom-sheet-enter { transform: translateY(100%); }
+.bottom-sheet-enter-active { transform: translateY(0); transition: transform 300ms ease-out; }
+
+/* Slider custom */
+input[type='range'] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+}
+input[type='range']::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 3px;
+  background: linear-gradient(to right, #10b981 var(--val, 50%), #e2e8f0 var(--val, 50%));
+}
+input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: white;
+  border: 2.5px solid #10b981;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+  margin-top: -7px;
+  cursor: pointer;
+  transition: transform 0.1s;
+}
+input[type='range']:active::-webkit-slider-thumb {
+  transform: scale(1.15);
+}
+
+/* Popup Leaflet custom */
+.leaflet-popup-content-wrapper {
+  border-radius: 12px !important;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.12) !important;
+  padding: 0 !important;
+}
+.leaflet-popup-content {
+  margin: 0 !important;
+  padding: 12px 14px !important;
+}
+.leaflet-popup-tip-container { display: none; }
