@@ -1,5 +1,5 @@
-import { useMemo, useEffect } from 'react';
-import { MapContainer, TileLayer, CircleMarker, Popup, useMap, useMapEvents } from 'react-leaflet';
+import { useMemo, useEffect, useCallback } from 'react';
+import { MapContainer, TileLayer, CircleMarker, useMap, useMapEvents } from 'react-leaflet';
 import type { GeoJSONCollection, GeoJSONFeature } from '../types/parking';
 import { getStatusFromProps, STATUS_COLORS } from '../utils/parkingLogic';
 import type { PanneauProps } from '../utils/parkingLogic';
@@ -7,7 +7,6 @@ import type { PanneauProps } from '../utils/parkingLogic';
 const PLATEAU_CENTER: [number, number] = [45.5225, -73.5818];
 const DEFAULT_ZOOM = 15;
 
-// Carto Positron — fond clair très élégant, gratuit, sans clé API
 const TILE_URL = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
 const TILE_ATTR = '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>';
 
@@ -39,16 +38,8 @@ function ZoomControls() {
   const map = useMap();
   return (
     <div className="absolute bottom-52 right-3 z-[999] flex flex-col gap-1">
-      <button
-        onClick={() => map.zoomIn()}
-        className="w-11 h-11 bg-white rounded-2xl shadow-md flex items-center justify-center border border-slate-100 text-slate-600 font-bold text-lg active:scale-95 transition-transform"
-        aria-label="Zoom +"
-      >+</button>
-      <button
-        onClick={() => map.zoomOut()}
-        className="w-11 h-11 bg-white rounded-2xl shadow-md flex items-center justify-center border border-slate-100 text-slate-600 font-bold text-lg active:scale-95 transition-transform"
-        aria-label="Zoom -"
-      >−</button>
+      <button onClick={() => map.zoomIn()} className="w-11 h-11 bg-white rounded-2xl shadow-md flex items-center justify-center border border-slate-100 text-slate-600 font-bold text-lg active:scale-95 transition-transform" aria-label="Zoom +">+</button>
+      <button onClick={() => map.zoomOut()} className="w-11 h-11 bg-white rounded-2xl shadow-md flex items-center justify-center border border-slate-100 text-slate-600 font-bold text-lg active:scale-95 transition-transform" aria-label="Zoom −">−</button>
     </div>
   );
 }
@@ -57,9 +48,10 @@ interface MarkersProps {
   features: GeoJSONFeature[];
   simulatedDate: Date;
   onCountChange: (libres: number, interdits: number) => void;
+  onMarkerClick: (props: PanneauProps) => void;
 }
 
-function PanneauMarkers({ features, simulatedDate, onCountChange }: MarkersProps) {
+function PanneauMarkers({ features, simulatedDate, onCountChange, onMarkerClick }: MarkersProps) {
   const markers = useMemo(() => {
     let libres = 0;
     let interdits = 0;
@@ -70,7 +62,7 @@ function PanneauMarkers({ features, simulatedDate, onCountChange }: MarkersProps
       if (status === 'gratuit') libres++;
       else interdits++;
       const coords = f.geometry.coordinates as [number, number];
-      return { i, lat: coords[1], lon: coords[0], status, desc: props.d };
+      return { i, lat: coords[1], lon: coords[0], status, props };
     });
 
     return { result, libres, interdits };
@@ -83,33 +75,22 @@ function PanneauMarkers({ features, simulatedDate, onCountChange }: MarkersProps
 
   return (
     <>
-      {markers.result.map(({ i, lat, lon, status, desc }) => (
+      {markers.result.map(({ i, lat, lon, status, props }) => (
         <CircleMarker
           key={i}
           center={[lat, lon]}
-          radius={4}
+          radius={5}
           pathOptions={{
-            color: STATUS_COLORS[status],
+            color: 'white',
             fillColor: STATUS_COLORS[status],
-            fillOpacity: 0.8,
+            fillOpacity: 0.9,
             weight: 1.5,
             opacity: 1,
           }}
-        >
-          <Popup maxWidth={220}>
-            <div style={{ padding: '2px 0' }}>
-              <div style={{
-                fontWeight: 700,
-                fontSize: 13,
-                color: status === 'interdit' ? '#dc2626' : '#16a34a',
-                marginBottom: 4,
-              }}>
-                {status === 'interdit' ? '❌ Interdit sans vignette' : '✅ Stationnement libre'}
-              </div>
-              <div style={{ fontSize: 11, color: '#64748b', fontFamily: 'monospace' }}>{desc}</div>
-            </div>
-          </Popup>
-        </CircleMarker>
+          eventHandlers={{
+            click: () => onMarkerClick(props),
+          }}
+        />
       ))}
     </>
   );
@@ -119,9 +100,12 @@ interface Props {
   geoData: GeoJSONCollection | null;
   simulatedDate: Date;
   onCountChange: (libres: number, interdits: number) => void;
+  onMarkerClick: (props: PanneauProps) => void;
 }
 
-export default function MapComponent({ geoData, simulatedDate, onCountChange }: Props) {
+export default function MapComponent({ geoData, simulatedDate, onCountChange, onMarkerClick }: Props) {
+  const handleMarkerClick = useCallback(onMarkerClick, [onMarkerClick]);
+
   return (
     <div className="relative w-full h-full">
       <MapContainer
@@ -129,7 +113,7 @@ export default function MapComponent({ geoData, simulatedDate, onCountChange }: 
         zoom={DEFAULT_ZOOM}
         className="w-full h-full"
         zoomControl={false}
-        preferCanvas={true}
+        preferCanvas={false}
       >
         <TileLayer attribution={TILE_ATTR} url={TILE_URL} />
         {geoData && (
@@ -137,6 +121,7 @@ export default function MapComponent({ geoData, simulatedDate, onCountChange }: 
             features={geoData.features}
             simulatedDate={simulatedDate}
             onCountChange={onCountChange}
+            onMarkerClick={handleMarkerClick}
           />
         )}
         <GeolocationButton />
